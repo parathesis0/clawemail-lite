@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ClawMail Lite</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div>
+            <strong>ClawMail Lite</strong>
+            <span id="account">正在连接</span>
+          </div>
+          <button id="refresh" title="刷新">↻</button>
+        </div>
+        <button class="compose" id="composeBtn">写邮件</button>
+        <nav id="folders"></nav>
+      </aside>
+
+      <main class="mailbox">
+        <header class="toolbar">
+          <input id="search" type="search" placeholder="搜索主题、发件人或收件人">
+          <label><input id="unreadOnly" type="checkbox"> 未读</label>
+          <button id="markRead">标记已读</button>
+          <button id="markUnread">标记未读</button>
+          <select id="moveTarget"></select>
+          <button id="moveBtn">移动</button>
+        </header>
+
+        <section class="content">
+          <div class="list" id="messages"></div>
+          <article class="reader">
+            <div class="readerHead">
+              <div>
+                <h1 id="subject">选择一封邮件</h1>
+                <p id="meta"></p>
+              </div>
+              <button id="replyBtn" hidden>回复</button>
+            </div>
+            <pre id="body"></pre>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="composer">
+      <form method="dialog" class="composerBox">
+        <header>
+          <strong id="composeTitle">写邮件</strong>
+          <button value="cancel">×</button>
+        </header>
+        <input id="to" placeholder="收件人，多个地址用逗号分隔">
+        <input id="cc" placeholder="抄送">
+        <input id="subjectInput" placeholder="主题">
+        <textarea id="composeBody" placeholder="正文"></textarea>
+        <input id="attachments" placeholder="附件本机路径，多个路径用 | 分隔">
+        <footer>
+          <span id="sendStatus"></span>
+          <button id="sendBtn" value="default">发送</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
