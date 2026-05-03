@@ -72,6 +72,74 @@ async function loadFolders() {
   }
 }
 
+async function loadAgentMailboxes() {
+  const box = $("agentMailboxes");
+  box.innerHTML = `<small>正在加载</small>`;
+  try {
+    const payload = await request("/api/agent-mailboxes");
+    const root = unwrap(payload)?.mailbox;
+    const rows = [root, ...(root?.subMailboxes || [])].filter(Boolean);
+    if (!rows.length) {
+      box.innerHTML = `<small>暂无 Agent 邮箱</small>`;
+      return;
+    }
+    box.innerHTML = "";
+    for (const mailbox of rows) {
+      const item = document.createElement("div");
+      item.className = "agentItem";
+      const isSub = mailbox.mailboxType === "sub";
+      item.innerHTML = `
+        <div>
+          <strong>${escapeHtml(mailbox.displayName || mailbox.prefix)}</strong>
+          <span>${escapeHtml(mailbox.email || mailbox.uid)}</span>
+          <small>${escapeHtml(mailbox.mailboxType || "")} · ${escapeHtml(mailbox.status || "")}</small>
+        </div>
+        <div class="agentActions">
+          ${isSub ? `<button data-action="toggle">${mailbox.status === "active" ? "停用" : "启用"}</button><button data-action="delete">删除</button>` : ""}
+        </div>
+      `;
+      item.querySelector('[data-action="toggle"]')?.addEventListener("click", () => toggleAgentMailbox(mailbox));
+      item.querySelector('[data-action="delete"]')?.addEventListener("click", () => deleteAgentMailbox(mailbox));
+      box.appendChild(item);
+    }
+  } catch (error) {
+    box.innerHTML = `<small>${escapeHtml(error.message)}</small>`;
+  }
+}
+
+async function createSubMailbox() {
+  const prefix = $("subPrefix").value.trim();
+  const displayName = $("subName").value.trim();
+  if (!prefix) return;
+  await request("/api/agent-mailboxes", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ prefix, displayName, type: "sub" }),
+  });
+  $("subPrefix").value = "";
+  $("subName").value = "";
+  await loadAgentMailboxes();
+}
+
+async function toggleAgentMailbox(mailbox) {
+  const endpoint = mailbox.status === "active" ? "/api/agent-mailbox/disable" : "/api/agent-mailbox/enable";
+  await request(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ uid: mailbox.uid || mailbox.email }),
+  });
+  await loadAgentMailboxes();
+}
+
+async function deleteAgentMailbox(mailbox) {
+  await request("/api/agent-mailbox/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ uid: mailbox.uid || mailbox.email }),
+  });
+  await loadAgentMailboxes();
+}
+
 async function loadMessages() {
   const query = new URLSearchParams({
     fid: state.fid,
@@ -217,6 +285,8 @@ $("search").addEventListener("input", () => {
 });
 $("unreadOnly").onchange = loadMessages;
 $("refresh").onclick = () => Promise.all([loadStatus(), loadFolders(), loadMessages()]);
+$("agentRefresh").onclick = loadAgentMailboxes;
+$("createSub").onclick = createSubMailbox;
 $("composeBtn").onclick = () => openComposer(false);
 $("replyBtn").onclick = () => openComposer(true);
 $("markRead").onclick = () => mark(false);
@@ -224,6 +294,6 @@ $("markUnread").onclick = () => mark(true);
 $("moveBtn").onclick = moveSelected;
 $("sendBtn").onclick = sendMail;
 
-Promise.all([loadStatus(), loadFolders()]).then(loadMessages).catch((error) => {
+Promise.all([loadStatus(), loadFolders(), loadAgentMailboxes()]).then(loadMessages).catch((error) => {
   $("account").textContent = error.message;
 });

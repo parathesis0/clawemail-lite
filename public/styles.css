@@ -80,6 +80,70 @@ button:hover {
   gap: 6px;
 }
 
+.agentBox {
+  border-top: 1px solid #40505f;
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.agentHead,
+.agentItem,
+.agentActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentHead {
+  justify-content: space-between;
+}
+
+.agentHead button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+#agentMailboxes {
+  display: grid;
+  gap: 8px;
+}
+
+.agentItem {
+  align-items: start;
+  justify-content: space-between;
+  border: 1px solid #40505f;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.agentItem small,
+.agentItem span {
+  display: block;
+  color: #b9c4ce;
+  overflow-wrap: anywhere;
+}
+
+.agentActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.agentActions button {
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
+.agentCreate {
+  display: grid;
+  gap: 8px;
+}
+
+.agentCreate input {
+  min-width: 0;
+}
+
 .folder {
   width: 100%;
   display: flex;

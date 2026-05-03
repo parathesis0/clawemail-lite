@@ -21,6 +21,12 @@ npm run setup -- --auth-url "t1/xxxx"
 npm run setup -- --auth-url "https://u.163.com/t1/xxxx"
 ```
 
+如果拿到的是 Hermes/OpenClaw 页面给出的子邮箱命令，可以把里面的参数直接迁移过来：
+
+```powershell
+npm run setup -- --auth-url "t1/xxxx" --home-email "you@example.com"
+```
+
 脚本会做这些事：
 
 - 检查 `mail-cli` 是否存在
@@ -86,6 +92,9 @@ $env:TEST_TO="someone@example.com"; npm test
 - 回复邮件
 - 标记已读/未读
 - 移动邮件到其他文件夹
+- 创建、查看、停用、启用、删除 Agent 子邮箱
+
+创建子邮箱时填写的是子邮箱后缀。例如主邮箱是 `name@claw.163.com`，填写 `test` 后会创建类似 `name.test@claw.163.com` 的子邮箱。
 
 ## 附件
 
@@ -113,3 +122,4 @@ __apikey__:default:apiKey
 - `mail-cli mail list/search` 列邮件和搜索
 - `mail-cli read body/header` 读邮件
 - `mail-cli compose send/reply` 发信和回复
+- `mail-cli clawemail create/list/info/delete/enable/disable/profile` 管理 Agent 子邮箱

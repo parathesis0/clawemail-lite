@@ -18,6 +18,18 @@
         </div>
         <button class="compose" id="composeBtn">写邮件</button>
         <nav id="folders"></nav>
+        <section class="agentBox">
+          <div class="agentHead">
+            <strong>Agent 邮箱</strong>
+            <button id="agentRefresh" title="刷新 Agent 邮箱">↻</button>
+          </div>
+          <div id="agentMailboxes"></div>
+          <div class="agentCreate">
+            <input id="subPrefix" placeholder="子邮箱后缀">
+            <input id="subName" placeholder="显示名">
+            <button id="createSub">创建子邮箱</button>
+          </div>
+        </section>
       </aside>
 
       <main class="mailbox">

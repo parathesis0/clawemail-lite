@@ -7,11 +7,13 @@ const externalTo = process.env.TEST_TO || "";
 const port = Number(process.env.TEST_PORT || 9876);
 const baseUrl = `http://localhost:${port}`;
 const runId = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+const runWord = runId.replace(/\d/g, (digit) => "abcdefghij"[Number(digit)]).slice(0, 12);
 const qqSubject = `ClawMail Lite QQ test ${runId}`;
 const selfSubject = `ClawMail Lite self test ${runId}`;
 const checks = [];
 
 let server;
+let createdAgentSubUid = "";
 
 function pass(name, detail = "") {
   checks.push({ name, ok: true, detail });
@@ -136,6 +138,61 @@ async function main() {
   const sent = folders.find((item) => item.name === "已发送") || folders.find((item) => item.id === "3");
   const deleted = folders.find((item) => item.name === "已删除") || folders.find((item) => item.id === "4");
 
+  const mailboxRoot = await step("agent mailbox list", async () => {
+    const payload = await request("/api/agent-mailboxes");
+    const root = unwrap(payload)?.mailbox;
+    if (!root?.prefix || !root?.email) throw new Error("primary Agent mailbox missing");
+    return root;
+  });
+
+  const subPrefix = `smoke${runWord.slice(0, 4)}`;
+
+  await step("agent sub mailbox create", async () => {
+    const payload = await request("/api/agent-mailboxes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prefix: subPrefix, type: "sub", displayName: `smoke-${runId}` }),
+    });
+    const data = unwrap(payload)?.mailbox || unwrap(payload) || {};
+    createdAgentSubUid = data.uid || data.email || `${subPrefix}@claw.163.com`;
+    if (!createdAgentSubUid.endsWith("@claw.163.com")) throw new Error("created sub mailbox uid missing");
+    return createdAgentSubUid;
+  });
+
+  await step("agent sub mailbox info", async () => {
+    const payload = await request(`/api/agent-mailbox?uid=${encodeURIComponent(createdAgentSubUid)}`);
+    const data = unwrap(payload)?.mailbox || unwrap(payload);
+    if (!JSON.stringify(data).includes(createdAgentSubUid)) throw new Error("created sub mailbox not found");
+    return createdAgentSubUid;
+  });
+
+  await step("agent sub mailbox rename", async () => {
+    await request("/api/agent-mailbox/profile", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uid: createdAgentSubUid, displayName: `renamed-${runId}` }),
+    });
+    return createdAgentSubUid;
+  });
+
+  await step("agent sub mailbox disable", async () => {
+    await request("/api/agent-mailbox/disable", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uid: createdAgentSubUid }),
+    });
+    return createdAgentSubUid;
+  });
+
+  await step("agent sub mailbox enable", async () => {
+    await request("/api/agent-mailbox/enable", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uid: createdAgentSubUid }),
+    });
+    return createdAgentSubUid;
+  });
+
   await step("message list", async () => {
     const payload = await request(`/api/messages?fid=${encodeURIComponent(inbox.id)}&limit=5`);
     const data = unwrap(payload);
@@ -252,6 +309,18 @@ async function main() {
     });
   }
 
+  if (createdAgentSubUid) {
+    await step("agent sub mailbox delete", async () => {
+      await request("/api/agent-mailbox/delete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ uid: createdAgentSubUid }),
+      });
+      return createdAgentSubUid;
+    });
+    createdAgentSubUid = "";
+  }
+
   await fs.rm(attachmentPath, { force: true });
   const passed = checks.filter((item) => item.ok).length;
   console.log("");
@@ -275,6 +344,18 @@ main()
     console.error(`Smoke test failed: ${error.message}`);
     process.exitCode = 1;
   })
-  .finally(() => {
+  .finally(async () => {
+    if (createdAgentSubUid) {
+      try {
+        await request("/api/agent-mailbox/delete", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ uid: createdAgentSubUid }),
+        });
+        console.log(`Cleaned up sub mailbox: ${createdAgentSubUid}`);
+      } catch (error) {
+        console.error(`Cleanup failed for ${createdAgentSubUid}: ${error.message}`);
+      }
+    }
     if (server && !server.killed) server.kill();
   });

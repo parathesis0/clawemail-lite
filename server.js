@@ -107,6 +107,57 @@ async function api(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/agent-mailboxes") {
+    send(res, 200, await cli(["clawemail", "list"]));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent-mailboxes") {
+    const body = await readJson(req);
+    if (!body.prefix) throw new Error("prefix is required");
+    const args = ["clawemail", "create", "--prefix", body.prefix, "--type", body.type || "sub", "--no-install-info"];
+    addOpt(args, "--display-name", body.displayName);
+    send(res, 200, await cli(args));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/agent-mailbox") {
+    const uid = url.searchParams.get("uid");
+    if (!uid) throw new Error("uid is required");
+    send(res, 200, await cli(["clawemail", "info", "--uid", uid]));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent-mailbox/delete") {
+    const body = await readJson(req);
+    if (!body.uid) throw new Error("uid is required");
+    send(res, 200, await cli(["clawemail", "delete", "--uid", body.uid]));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent-mailbox/enable") {
+    const body = await readJson(req);
+    if (!body.uid) throw new Error("uid is required");
+    send(res, 200, await cli(["clawemail", "enable", "--uid", body.uid]));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent-mailbox/disable") {
+    const body = await readJson(req);
+    if (!body.uid) throw new Error("uid is required");
+    send(res, 200, await cli(["clawemail", "disable", "--uid", body.uid]));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/agent-mailbox/profile") {
+    const body = await readJson(req);
+    if (!body.uid) throw new Error("uid is required");
+    const args = ["clawemail", "profile", "--uid", body.uid];
+    addOpt(args, "--display-name", body.displayName);
+    send(res, 200, await cli(args));
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/messages") {
     const fid = url.searchParams.get("fid") || "1";
     const keyword = url.searchParams.get("q") || "";

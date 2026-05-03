@@ -3,11 +3,14 @@ import { spawn } from "node:child_process";
 const args = parseArgs(process.argv.slice(2));
 
 function parseArgs(argv) {
-  const parsed = { authUrl: "" };
+  const parsed = { authUrl: "", homeEmail: "" };
   for (let index = 0; index < argv.length; index += 1) {
     const item = argv[index];
     if (item === "--auth-url" || item === "--url") {
       parsed.authUrl = argv[index + 1] || "";
+      index += 1;
+    } else if (item === "--home-email") {
+      parsed.homeEmail = argv[index + 1] || "";
       index += 1;
     } else if (!parsed.authUrl) {
       parsed.authUrl = item;
@@ -97,12 +100,13 @@ async function fetchAuth(url) {
 async function main() {
   const authUrl = normalizeAuthUrl(args.authUrl);
   if (!authUrl) {
-    console.error("Usage: npm run setup -- --auth-url <auth-url>");
-    console.error('Example: npm run setup -- --auth-url "t1/xxxx"');
+    console.error("Usage: npm run setup -- --auth-url <auth-url> [--home-email <email>]");
+    console.error('Example: npm run setup -- --auth-url "t1/xxxx" --home-email "you@example.com"');
     process.exit(1);
   }
 
   await ensureMailCli();
+  if (args.homeEmail) console.log(`Home email: ${args.homeEmail}`);
 
   console.log("Fetching ClawEmail account info...");
   const body = await fetchAuth(authUrl);
