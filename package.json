@@ -7,7 +7,9 @@
   "scripts": {
     "setup": "node scripts/setup-auth.js",
     "start": "node server.js",
-    "test": "node scripts/smoke-test.js"
+    "test": "node scripts/smoke-test.js",
+    "migrate:export": "node scripts/migrate-export.js",
+    "migrate:import": "node scripts/migrate-import.js"
   },
   "engines": {
     "node": ">=18"

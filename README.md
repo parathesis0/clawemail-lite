@@ -81,6 +81,35 @@ npm test
 $env:TEST_TO="someone@example.com"; npm test
 ```
 
+## 跨设备迁移
+
+auth 链接通常半小时内失效，且可能只能使用一次。已经配置好的设备要迁移到另一台设备时，不要复用旧 auth 链接；导出本机 `mail-cli` 状态，再在新设备导入。
+
+旧设备导出：
+
+```powershell
+$env:MIGRATE_PASSPHRASE="use-a-long-random-passphrase"
+npm run migrate:export -- --out clawmail.clawmail-backup
+```
+
+把 `clawmail.clawmail-backup` 复制到新设备。新设备先安装依赖：
+
+```powershell
+npm install
+npm i @clawemail/mail-cli -g --force
+```
+
+新设备导入：
+
+```powershell
+$env:MIGRATE_PASSPHRASE="use-a-long-random-passphrase"
+npm run migrate:import -- --in clawmail.clawmail-backup --force
+mail-cli auth test
+npm start
+```
+
+迁移包包含 `mail-cli` 的本地配置、token 和加密密钥文件，因此等价于邮箱登录凭证。只通过可信渠道传输，导入成功后删除迁移包。
+
 ## 功能
 
 - 查看账号状态
