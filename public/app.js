@@ -1,4 +1,5 @@
 const state = {
+  profile: new URLSearchParams(window.location.search).get("profile") || localStorage.getItem("clawmail-lite-profile") || "default",
   fid: "1",
   folders: [],
   selected: null,
@@ -7,8 +8,14 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+function scopedPath(path) {
+  const url = new URL(path, window.location.origin);
+  if (state.profile) url.searchParams.set("profile", state.profile);
+  return `${url.pathname}${url.search}`;
+}
+
 async function request(path, options) {
-  const res = await fetch(path, options);
+  const res = await fetch(scopedPath(path), options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "请求失败");
   return data;
@@ -43,7 +50,24 @@ function messageDate(msg) {
 async function loadStatus() {
   const status = await request("/api/status");
   const profiles = unwrap(status.profiles) || status.profiles || [];
-  const profile = Array.isArray(profiles) ? profiles.find((item) => item.default) || profiles[0] : null;
+  const rows = Array.isArray(profiles) ? profiles : [];
+  const profile = rows.find((item) => item.profile === state.profile) || rows.find((item) => item.default) || rows[0] || null;
+
+  if (profile && profile.profile !== state.profile) {
+    state.profile = profile.profile;
+    localStorage.setItem("clawmail-lite-profile", state.profile);
+  }
+
+  const select = $("profileSelect");
+  select.innerHTML = "";
+  for (const item of rows) {
+    const option = document.createElement("option");
+    option.value = item.profile;
+    option.textContent = `${item.profile}${item.default ? " 默认" : ""}`;
+    select.appendChild(option);
+  }
+  select.value = state.profile;
+
   $("account").textContent = profile ? `${profile.profile} · ${profile.status}` : status.auth?.message || "已连接";
 }
 
@@ -285,6 +309,18 @@ $("search").addEventListener("input", () => {
 });
 $("unreadOnly").onchange = loadMessages;
 $("refresh").onclick = () => Promise.all([loadStatus(), loadFolders(), loadMessages()]);
+$("profileSelect").onchange = async () => {
+  state.profile = $("profileSelect").value || "default";
+  localStorage.setItem("clawmail-lite-profile", state.profile);
+  state.fid = "1";
+  state.selected = null;
+  $("subject").textContent = "选择一封邮件";
+  $("meta").textContent = "";
+  $("body").textContent = "";
+  $("replyBtn").hidden = true;
+  await Promise.all([loadStatus(), loadFolders(), loadAgentMailboxes()]);
+  await loadMessages();
+};
 $("agentRefresh").onclick = loadAgentMailboxes;
 $("createSub").onclick = createSubMailbox;
 $("composeBtn").onclick = () => openComposer(false);
