@@ -53,8 +53,18 @@ function run(command, args, options = {}) {
 }
 
 function resolveCommand(command) {
+  if (command === "mail-cli" && process.env.MAIL_CLI_BIN) {
+    return { file: process.env.MAIL_CLI_BIN, prefixArgs: [], shell: false };
+  }
   if (process.platform !== "win32") return { file: command, prefixArgs: [], shell: false };
   if (command === "mail-cli") {
+    if (process.env.npm_config_prefix) {
+      return {
+        file: process.execPath,
+        prefixArgs: [`${process.env.npm_config_prefix}\\node_modules\\@clawemail\\mail-cli\\bin\\mail-cli`],
+        shell: false,
+      };
+    }
     return {
       file: process.execPath,
       prefixArgs: [`${process.env.APPDATA}\\npm\\node_modules\\@clawemail\\mail-cli\\bin\\mail-cli`],

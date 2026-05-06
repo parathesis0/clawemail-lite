@@ -63,6 +63,15 @@ button:hover {
   overflow-wrap: anywhere;
 }
 
+.brand select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 8px;
+  background: #1f2933;
+  border-color: #40505f;
+  color: #f6f8fa;
+}
+
 .brand button {
   width: 36px;
   height: 36px;

@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 const root = resolve(".");
 const publicDir = join(root, "public");
 const requestedPort = Number(process.env.PORT || 8787);
+const host = process.env.HOST || "127.0.0.1";
 
 function send(res, status, value, headers = {}) {
   const body = typeof value === "string" ? value : JSON.stringify(value);
@@ -36,8 +37,9 @@ function readJson(req) {
   });
 }
 
-function cli(args, { parseJson = true } = {}) {
-  const fullArgs = parseJson ? ["--json", ...args] : args;
+function cli(args, { parseJson = true, profile = "" } = {}) {
+  const profileArgs = profile && profile !== "default" ? ["--profile", profile] : [];
+  const fullArgs = parseJson ? ["--json", ...profileArgs, ...args] : [...profileArgs, ...args];
   return new Promise((resolveCli, reject) => {
     const command = mailCliCommand();
     const child = spawn(command.file, [...command.prefixArgs, ...fullArgs]);
@@ -71,11 +73,22 @@ function cli(args, { parseJson = true } = {}) {
 }
 
 function mailCliCommand() {
+  if (process.env.MAIL_CLI_BIN) return { file: process.env.MAIL_CLI_BIN, prefixArgs: [] };
   if (process.platform !== "win32") return { file: "mail-cli", prefixArgs: [] };
+  if (process.env.npm_config_prefix) {
+    return {
+      file: process.execPath,
+      prefixArgs: [join(process.env.npm_config_prefix, "node_modules", "@clawemail", "mail-cli", "bin", "mail-cli")],
+    };
+  }
   return {
     file: process.execPath,
     prefixArgs: [join(process.env.APPDATA || "", "npm", "node_modules", "@clawemail", "mail-cli", "bin", "mail-cli")],
   };
+}
+
+function requestProfile(url) {
+  return String(url.searchParams.get("profile") || "").trim();
 }
 
 function addOpt(args, flag, value) {
@@ -93,22 +106,24 @@ async function withBodyFile(body, fn) {
 }
 
 async function api(req, res, url) {
+  const profile = requestProfile(url);
+
   if (req.method === "GET" && url.pathname === "/api/status") {
     const [profiles, auth] = await Promise.all([
       cli(["auth", "list"]),
-      cli(["auth", "test"], { parseJson: false }).then((message) => ({ ok: true, message })).catch((error) => ({ ok: false, message: error.message })),
+      cli(["auth", "test"], { parseJson: false, profile }).then((message) => ({ ok: true, message })).catch((error) => ({ ok: false, message: error.message })),
     ]);
     send(res, 200, { profiles, auth });
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/folders") {
-    send(res, 200, await cli(["folder", "list"]));
+    send(res, 200, await cli(["folder", "list"], { profile }));
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/agent-mailboxes") {
-    send(res, 200, await cli(["clawemail", "list"]));
+    send(res, 200, await cli(["clawemail", "list"], { profile }));
     return;
   }
 
@@ -117,35 +132,35 @@ async function api(req, res, url) {
     if (!body.prefix) throw new Error("prefix is required");
     const args = ["clawemail", "create", "--prefix", body.prefix, "--type", body.type || "sub", "--no-install-info"];
     addOpt(args, "--display-name", body.displayName);
-    send(res, 200, await cli(args));
+    send(res, 200, await cli(args, { profile }));
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/agent-mailbox") {
     const uid = url.searchParams.get("uid");
     if (!uid) throw new Error("uid is required");
-    send(res, 200, await cli(["clawemail", "info", "--uid", uid]));
+    send(res, 200, await cli(["clawemail", "info", "--uid", uid], { profile }));
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/agent-mailbox/delete") {
     const body = await readJson(req);
     if (!body.uid) throw new Error("uid is required");
-    send(res, 200, await cli(["clawemail", "delete", "--uid", body.uid]));
+    send(res, 200, await cli(["clawemail", "delete", "--uid", body.uid], { profile }));
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/agent-mailbox/enable") {
     const body = await readJson(req);
     if (!body.uid) throw new Error("uid is required");
-    send(res, 200, await cli(["clawemail", "enable", "--uid", body.uid]));
+    send(res, 200, await cli(["clawemail", "enable", "--uid", body.uid], { profile }));
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/agent-mailbox/disable") {
     const body = await readJson(req);
     if (!body.uid) throw new Error("uid is required");
-    send(res, 200, await cli(["clawemail", "disable", "--uid", body.uid]));
+    send(res, 200, await cli(["clawemail", "disable", "--uid", body.uid], { profile }));
     return;
   }
 
@@ -154,7 +169,7 @@ async function api(req, res, url) {
     if (!body.uid) throw new Error("uid is required");
     const args = ["clawemail", "profile", "--uid", body.uid];
     addOpt(args, "--display-name", body.displayName);
-    send(res, 200, await cli(args));
+    send(res, 200, await cli(args, { profile }));
     return;
   }
 
@@ -166,7 +181,7 @@ async function api(req, res, url) {
     addOpt(args, "--start", url.searchParams.get("start"));
     if (url.searchParams.get("unread") === "1") args.push("--unread");
     if (!keyword) args.push("--desc");
-    send(res, 200, await cli(args));
+    send(res, 200, await cli(args, { profile }));
     return;
   }
 
@@ -175,9 +190,9 @@ async function api(req, res, url) {
     const id = url.searchParams.get("id");
     if (!id) throw new Error("Missing message id");
     const [header, body, structure] = await Promise.all([
-      cli(["read", "header", "--fid", fid, "--id", id]),
-      cli(["read", "body", "--fid", fid, "--id", id], { parseJson: false }),
-      cli(["read", "structure", "--fid", fid, "--id", id]).catch(() => ({ success: false, data: null })),
+      cli(["read", "header", "--fid", fid, "--id", id], { profile }),
+      cli(["read", "body", "--fid", fid, "--id", id], { parseJson: false, profile }),
+      cli(["read", "structure", "--fid", fid, "--id", id], { profile }).catch(() => ({ success: false, data: null })),
     ]);
     send(res, 200, { header, body, structure });
     return;
@@ -193,7 +208,7 @@ async function api(req, res, url) {
       addOpt(args, "--from", body.from);
       if (body.html) args.push("--html");
       for (const path of body.attachments || []) args.push("--attach", path);
-      return cli(args);
+      return cli(args, { profile });
     });
     send(res, 200, result);
     return;
@@ -209,7 +224,7 @@ async function api(req, res, url) {
       if (body.all) args.push("--all");
       if (body.html) args.push("--html");
       for (const path of body.attachments || []) args.push("--attach", path);
-      return cli(args);
+      return cli(args, { profile });
     });
     send(res, 200, result);
     return;
@@ -219,14 +234,14 @@ async function api(req, res, url) {
     const body = await readJson(req);
     const args = ["mail", "mark", "--fid", body.fid || "1", "--ids", Array.isArray(body.ids) ? body.ids.join(",") : String(body.ids || "")];
     args.push(body.unread ? "--unread" : "--read");
-    send(res, 200, await cli(args));
+    send(res, 200, await cli(args, { profile }));
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/move") {
     const body = await readJson(req);
     const args = ["mail", "move", "--fid", body.fid || "1", "--to-fid", body.toFid, "--ids", Array.isArray(body.ids) ? body.ids.join(",") : String(body.ids || "")];
-    send(res, 200, await cli(args));
+    send(res, 200, await cli(args, { profile }));
     return;
   }
 
@@ -288,8 +303,8 @@ function listen(port, attempts = 0) {
     }
     throw error;
   });
-  server.listen(port, () => {
-    console.log(`ClawMail Lite is running at http://localhost:${port}`);
+  server.listen(port, host, () => {
+    console.log(`ClawMail Lite is running at http://${host}:${port}`);
   });
 }
 
